@@ -50,7 +50,7 @@ io.on('connection', socket => {
             users: [
                 socket.id
             ],
-            player: {},
+            players: {},
             maxPlayers,
             characteristicPlayer
         }
@@ -84,14 +84,26 @@ io.on('connection', socket => {
         roomsList[roomId].users.push(socket.id)
         socket.join(roomId)
 
+        roomsList[roomId].players[socket.id] = {}
+        for (const characteristic of roomsList[roomId].characteristicPlayer) {
+            if (characteristic.hasSubgroup){
+                roomsList[roomId].players[socket.id][characteristic.label] = {}
+                for (const subCharacteristic of characteristic.subgroup) {
+                    roomsList[roomId].players[socket.id][characteristic.label][subCharacteristic.label] = subCharacteristic.type === 'Number' ? 0 : ''
+                }
+            } else {
+                roomsList[roomId].players[socket.id][characteristic.label] = characteristic.type === 'Number' ? 0 : ''
+            }
+        }
+
         socket.to(roomId).emit('new player', {userId: socket.id, name: usersList[socket.id].name})
 
         callback({joinning: true, room: roomsList[roomId]})
     })
 
-    socket.on('create or update personnage', (characteristicPlayer, callback) => {
-        roomsList[roomId].player[socket.id] = characteristicPlayer
-        socket.to(roomId).emit('create player', characteristicPlayer)
+    socket.on('create or update personnage', (userId, characteristicPlayer, callback) => {
+        roomsList[roomId].players[userId] = characteristicPlayer
+        socket.to(roomId).emit('create or update personnage', userId, characteristicPlayer)
         callback('succes')
     })
 
