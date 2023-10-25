@@ -52,7 +52,8 @@ io.on('connection', socket => {
             ],
             players: {},
             maxPlayers,
-            characteristicPlayer
+            characteristicPlayer,
+            rollLogs: []
         }
         socket.join(roomId)
 
@@ -107,11 +108,22 @@ io.on('connection', socket => {
         callback('succes')
     })
 
-    socket.on('roll', (diceType, broadcast, callback) => {
-        const result = Math.floor(Math.random() * diceType)
+    socket.on('roll', (dices, broadcast, callback) => {
+        const result = {
+            total: 0,
+            userId: socket.id
+        }
+        for (const dice of dices) {
+            let resultDice = Math.floor(Math.random() * dice.split('.')[0])
+            resultDice = resultDice === 0 ? 1 : resultDice
+            result.total += resultDice
+            result[dice] = resultDice
+        }
+
+        roomsList[roomId].rollLogs.push(result)
 
         if (broadcast) {
-            socket.to(roomsList[roomId]).emit('dice result', {result})
+            socket.to(roomId).emit('dice result', result)
         }
 
         callback(result)
