@@ -17,16 +17,17 @@ io.on('connection', socket => {
 
     socket.on('user', (name, callback) => {
         userId = socket.id
-        usersList[socket.id] = {name}
+        usersList[socket.id] = {
+            name,
+            connected: true
+        }
         callback({creating: true, name})
     })
 
     socket.on('users in channel', (usersId, callback) => {
         const users = {}
         usersId.forEach(userId => {
-            users[userId] = {
-                name: usersList[userId]?.name
-            }
+            usersList[userId] ? users[userId] = {...usersList[userId]} : null
         });
         callback(users)
     })
@@ -147,9 +148,7 @@ io.on('connection', socket => {
         if (usersList[socket.id]) {
             socket.to(roomId).emit('user leave', socket.id);
             socket.leave(roomId)
-            delete usersList[socket.id]
-            const userIdInRoom = roomsList[roomId].users.indexOf[socket.id]
-            roomsList[roomId].users.splice(userIdInRoom, 1);
+            usersList[socket.id].connected = true  
             roomId = null
             // @TODO generate delete room
             /*if (!roomsList[roomId].users.length){
