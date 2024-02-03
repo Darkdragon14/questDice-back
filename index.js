@@ -144,11 +144,19 @@ io.on('connection', socket => {
         callback('Need to create')
     })
 
-    socket.on('disconnect', reason => {
+    socket.on('logout', reason => {
+        disconnect(reason)
+    })
+
+    socket.conn.on("close", reason => {
+        disconnect(reason)
+    })
+
+    const disconnect = (reason) => {
         if (usersList[socket.id]) {
-            socket.to(roomId).emit('user leave', socket.id);
+            socket.to(roomId).emit('user leave', socket.id, reason);
             socket.leave(roomId)
-            usersList[socket.id].connected = true  
+            usersList[socket.id].isConnected = false  
             roomId = null
             // @TODO generate delete room
             /*if (!roomsList[roomId].users.length){
@@ -158,5 +166,5 @@ io.on('connection', socket => {
             }
             */
         }
-    })
+    }
 })
