@@ -32,7 +32,7 @@ io.on('connection', socket => {
         callback(users)
     })
 
-    socket.on('create room', (roomName, maxPlayers, characteristicPlayer, callback) => {
+    socket.on('create room', (roomName, maxPlayers, gameMasterIsAPlayer, characteristicPlayer, callback) => {
         if (!usersList[userId]) {
             callback({error: 'You need an username'})
             return
@@ -53,10 +53,14 @@ io.on('connection', socket => {
             ],
             players: {},
             maxPlayers,
+            gameMasterIsAPlayer,
             characteristicPlayer,
             rollLogs: []
         }
         socket.join(roomId)
+        if (gameMasterIsAPlayer) {
+            generateCharacteristicsforAPlayer()
+        }
 
         callback({creating: true, room: roomsList[roomId]})
     })
@@ -86,17 +90,7 @@ io.on('connection', socket => {
         roomsList[roomId].users.push(userId)
         socket.join(roomId)
 
-        roomsList[roomId].players[userId] = {}
-        for (const characteristic of roomsList[roomId].characteristicPlayer) {
-            if (characteristic.hasSubgroup){
-                roomsList[roomId].players[userId][characteristic.label] = {}
-                for (const subCharacteristic of characteristic.subgroup) {
-                    roomsList[roomId].players[userId][characteristic.label][subCharacteristic.label] = subCharacteristic.type === 'Number' ? 0 : ''
-                }
-            } else {
-                roomsList[roomId].players[userId][characteristic.label] = characteristic.type === 'Number' ? 0 : ''
-            }
-        }
+        generateCharacteristicsforAPlayer()
 
         socket.to(roomId).emit('user join', {userId, ...usersList[userId]})
 
@@ -187,6 +181,20 @@ io.on('connection', socket => {
                 }, 8640000)
             }
             */
+        }
+    }
+
+    const generateCharacteristicsforAPlayer = () => {
+        roomsList[roomId].players[userId] = {}
+        for (const characteristic of roomsList[roomId].characteristicPlayer) {
+            if (characteristic.hasSubgroup){
+                roomsList[roomId].players[userId][characteristic.label] = {}
+                for (const subCharacteristic of characteristic.subgroup) {
+                    roomsList[roomId].players[userId][characteristic.label][subCharacteristic.label] = subCharacteristic.type === 'Number' ? 0 : ''
+                }
+            } else {
+                roomsList[roomId].players[userId][characteristic.label] = characteristic.type === 'Number' ? 0 : ''
+            }
         }
     }
 })
