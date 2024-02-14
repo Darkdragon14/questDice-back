@@ -29,8 +29,6 @@ io.on('connection', socket => {
         usersId.forEach(userId => { 
             usersList[userId] ? users[userId] = usersList[userId] : null
         });
-        console.log(usersId);
-        console.log(users);
         callback(users)
     })
 
