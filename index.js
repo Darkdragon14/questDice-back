@@ -12,28 +12,30 @@ const usersList = {};
 
 io.on('connection', socket => {
     let roomId = null;
+    let userId = uuidv4();
 
-    socket.emit('connection', 'success')
+    socket.emit('connection', userId)
 
     socket.on('user', (name, callback) => {
-        userId = socket.id
-        usersList[socket.id] = {
+        usersList[userId] = {
             name,
-            connected: true
+            isConnected: true
         }
-        callback({creating: true, name})
+        callback({creating: true, name, isConnected: true})
     })
 
     socket.on('users in channel', (usersId, callback) => {
         const users = {}
-        usersId.forEach(userId => {
-            usersList[userId] ? users[userId] = {...usersList[userId]} : null
+        usersId.forEach(userId => { 
+            usersList[userId] ? users[userId] = usersList[userId] : null
         });
+        console.log(usersId);
+        console.log(users);
         callback(users)
     })
 
     socket.on('create room', (roomName, maxPlayers, characteristicPlayer, callback) => {
-        if (!usersList[socket.id]) {
+        if (!usersList[userId]) {
             callback({error: 'You need an username'})
             return
         }
@@ -47,9 +49,9 @@ io.on('connection', socket => {
         roomsList[roomId] = {
             id: roomId,
             name: roomName,
-            admin: socket.id,
+            admin: userId,
             users: [
-                socket.id
+                userId
             ],
             players: {},
             maxPlayers,
@@ -62,7 +64,7 @@ io.on('connection', socket => {
     })
 
     socket.on('join room', (roomAndId, callback) => {
-        if (!usersList[socket.id]) {
+        if (!usersList[userId]) {
             callback({error: 'You need an username'})
             return
         }
@@ -83,36 +85,36 @@ io.on('connection', socket => {
             return
         }
 
-        roomsList[roomId].users.push(socket.id)
+        roomsList[roomId].users.push(userId)
         socket.join(roomId)
 
-        roomsList[roomId].players[socket.id] = {}
+        roomsList[roomId].players[userId] = {}
         for (const characteristic of roomsList[roomId].characteristicPlayer) {
             if (characteristic.hasSubgroup){
-                roomsList[roomId].players[socket.id][characteristic.label] = {}
+                roomsList[roomId].players[userId][characteristic.label] = {}
                 for (const subCharacteristic of characteristic.subgroup) {
-                    roomsList[roomId].players[socket.id][characteristic.label][subCharacteristic.label] = subCharacteristic.type === 'Number' ? 0 : ''
+                    roomsList[roomId].players[userId][characteristic.label][subCharacteristic.label] = subCharacteristic.type === 'Number' ? 0 : ''
                 }
             } else {
-                roomsList[roomId].players[socket.id][characteristic.label] = characteristic.type === 'Number' ? 0 : ''
+                roomsList[roomId].players[userId][characteristic.label] = characteristic.type === 'Number' ? 0 : ''
             }
         }
 
-        socket.to(roomId).emit('new player', {userId: socket.id, name: usersList[socket.id].name})
+        socket.to(roomId).emit('user join', {userId, ...usersList[userId]})
 
         callback({joinning: true, room: roomsList[roomId]})
     })
 
-    socket.on('create or update personnage', (userId, characteristicPlayer, callback) => {
-        roomsList[roomId].players[userId] = characteristicPlayer
-        socket.to(roomId).emit('create or update personnage', userId, characteristicPlayer)
+    socket.on('create or update personnage', (selectedUserId, characteristicPlayer, callback) => {
+        roomsList[roomId].players[selectedUserId] = characteristicPlayer
+        socket.to(roomId).emit('create or update personnage', selectedUserId, characteristicPlayer)
         callback('succes')
     })
 
     socket.on('roll', (dices, broadcast, callback) => {
         const result = {
             total: 0,
-            userId: socket.id
+            userId
         }
         for (const dice of dices) {
             let resultDice = Math.floor(Math.random() * dice.split('.')[0])
@@ -152,11 +154,33 @@ io.on('connection', socket => {
         disconnect(reason)
     })
 
+    socket.on('reconnect', (oldUserId, oldRoom, callback) => {
+        userId = oldUserId
+        if (!usersList[userId]) {
+            callback({error: 'User doesn\'t exist'})
+            return
+        }
+        usersList[userId].isConnected = true
+
+        roomId = oldRoom.split('#')[1]
+        if (!roomsList[roomId]) {
+            callback({error: 'This channel doesn\'t exist'})
+            return
+        }
+        socket.join(roomId)
+
+        socket.to(roomId).emit('user join', {userId, ...usersList[userId]});
+
+        callback(roomsList[roomId])
+    })
+
+    
+
     const disconnect = (reason) => {
-        if (usersList[socket.id]) {
-            socket.to(roomId).emit('user leave', socket.id, reason);
+        if (usersList[userId]) {
+            socket.to(roomId).emit('user leave', userId, reason);
             socket.leave(roomId)
-            usersList[socket.id].isConnected = false  
+            usersList[userId].isConnected = false  
             roomId = null
             // @TODO generate delete room
             /*if (!roomsList[roomId].users.length){
